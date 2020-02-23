@@ -6,11 +6,11 @@ import re
 
 
 def read_yaml():
+    """read config file for instructions"""
     with open("config.yml", 'r') as file1:
         yaml_file = yaml.safe_load(file1.read())
         # perform some checks
         v = Validator()
-        v.allow_unknown = True
         v.schema = {'name': {'required': True, 'type': 'integer', 'min': 1, 'max': 10},
                     'looback': {'type': 'boolean'},
                     'external-looback': {'type': 'boolean'},
@@ -30,6 +30,7 @@ def read_yaml():
 
 
 def generate_config():
+    """generate config from config.yml"""
     blank_cfg = inspect.cleandoc('''!
         interface Gi1
         no shut
@@ -120,9 +121,9 @@ def generate_config():
             appended_cfg += '!\n'
 
         if device.get('ebgp'):
-            dot1q = f'{device["name"]}{i}' if device["name"] < i else f'{i}{device["name"]}'  # make asc
             appended_cfg += f'router bgp {device["name"]}\n'
             for i in device['ebgp']:
+                dot1q = f'{device["name"]}{i}' if device["name"] < i else f'{i}{device["name"]}'  # make asc
                 neighbor = f'20.0.{dot1q}.{i}'
                 appended_cfg += f' neighbor {neighbor} remote-as {i}\n'
             appended_cfg += '!\n'
@@ -130,7 +131,7 @@ def generate_config():
 
 
 def write_config(filename: str, dev_config: str):
-    """write running configuration to file"""
+    """write running device configuration to file"""
     if not os.path.exists('running'):
         os.mkdir('running')
     with open(f'running/{filename}', 'w') as output:
