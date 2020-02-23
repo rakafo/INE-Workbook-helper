@@ -1,16 +1,31 @@
 import yaml
 import os
 import inspect
-import collections
+from cerberus import Validator
 import re
 
 
 def read_yaml():
-    # todo: check if dev number is put, also atleast 1 p2p
     with open("config.yml", 'r') as file1:
         yaml_file = yaml.safe_load(file1.read())
+        # perform some checks
+        v = Validator()
+        v.allow_unknown = True
+        v.schema = {'name': {'required': True, 'type': 'integer', 'min': 1, 'max': 10},
+                    'looback': {'type': 'boolean'},
+                    'external-looback': {'type': 'boolean'},
+                    'p2p': {'type': 'list'},
+                    'external-p2p': {'type': 'list'},
+                    'lan': {'type': 'integer', 'min': 10, 'max': '255'},
+                    'ospf': {'type': 'list'},
+                    'eigrp': {'type': 'list'},
+                    'ibgp': {'type': 'list'},
+                    'ebgp': {'type': 'list'},
+                    }
         for i in yaml_file:
-            print(i)
+            if not v.validate(i):
+                print(v.errors)
+                exit()
         return yaml_file
 
 
@@ -29,11 +44,10 @@ def generate_config():
         !
         no ip domain-lookup
         !''')
-    appended_cfg = blank_cfg
 
     yaml_file = read_yaml()
     for device in yaml_file:
-        appended_cfg += f'\nhostname R{device["name"]}\n!\n'
+        appended_cfg = blank_cfg + f'\nhostname R{device["name"]}\n!\n'
 
         if device.get('loopback'):
             loopback_ip = f'{device["name"]}.{device["name"]}.{device["name"]}.{device["name"]}'
@@ -82,7 +96,7 @@ def generate_config():
                     network = f'10.0.{re.search("[0-9]+", i).group(0)}.{device["name"]}'
                 else:
                     dot1q = f'{device["name"]}{i}' if device["name"] < i else f'{i}{device["name"]}'  # make asc
-                    network = f'10.0.{dot1q}.{i}'
+                    network = f'10.0.{dot1q}.{device["name"]}'
                 appended_cfg += f' network {network} 0.0.0.0 area 0\n'
             appended_cfg += '!\n'
 
@@ -93,7 +107,7 @@ def generate_config():
                     network = f'{device["name"]}.{device["name"]}.{device["name"]}.{device["name"]}'
                 else:
                     dot1q = f'{device["name"]}{i}' if device["name"] < i else f'{i}{device["name"]}'  # make asc
-                    network = f'10.0.{dot1q}.{i}'
+                    network = f'10.0.{dot1q}.{device["name"]}'
                 appended_cfg += f' network {network} 0.0.0.0\n'
             appended_cfg += '!\n'
 
@@ -112,7 +126,6 @@ def generate_config():
                 neighbor = f'20.0.{dot1q}.{i}'
                 appended_cfg += f' neighbor {neighbor} remote-as {i}\n'
             appended_cfg += '!\n'
-
         write_config(device['name'], appended_cfg)
 
 
