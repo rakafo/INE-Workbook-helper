@@ -24,9 +24,9 @@ blank_cfg = inspect.cleandoc('''!
         !
         no ip domain-lookup
         !''')
-IP = '148.251.122.103'
+IP = '148.251.122.103'  # CHANGE THIS
 START_PORT = 2100       # CHANGE THIS
-AVAILABLE_DEVICES = 10   # CHANGE THIS
+AVAILABLE_DEVICES = 10  # CHANGE THIS
 
 
 def read_yaml():
