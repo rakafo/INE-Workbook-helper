@@ -3,11 +3,15 @@ import os
 import inspect
 from cerberus import Validator
 import re
-import glob
+from multiprocessing import Process
 import shutil
+import telnetlib
+import sys
+import time
 
 new_run = True
 blank_cfg = inspect.cleandoc('''!
+        configure terminal
         interface Gi1
         no shut
         !
@@ -21,6 +25,9 @@ blank_cfg = inspect.cleandoc('''!
         !
         no ip domain-lookup
         !''')
+IP = '148.251.122.103'
+START_PORT = 2100
+END_PORT = 2100 + 2
 
 
 def read_yaml():
@@ -151,7 +158,7 @@ def generate_config():
                 neighbor = f'20.0.{dot1q}.{i}'
                 appended_cfg += f' neighbor {neighbor} remote-as {i}\n'
             appended_cfg += '!\n'
-
+        appended_cfg += 'end'
         write_config(device['name'], appended_cfg)
     print('running-config generated')
 
@@ -170,6 +177,66 @@ def write_config(filename: str, dev_config: str):
         output.write(dev_config)
 
 
+def get_config(filename):
+    """used by telnet_to"""
+    try:
+        with open(filename) as myfile:
+            return myfile.read()
+    except Exception as e:
+        print(e)
+
+
+def telnet_to(port, config=None):
+    try:
+        # restore base config
+        if not config:
+            print(f"loading startup-config for R{port - START_PORT}")
+            tn = telnetlib.Telnet(IP, port)
+            tn.write('end\n'.encode('ascii'))
+            time.sleep(0.2)
+            tn.write('config replace nvram:startup-config force\n'.encode('ascii'))
+            time.sleep(1)
+            tn.close()
+
+        # load provided config
+        else:
+            print(f"loading running-config for R{port-START_PORT}")
+            tn = telnetlib.Telnet(IP, port)
+            for i in config.split('!'):
+                tn.write(i.encode('ascii'))
+                time.sleep(0.2)
+            tn.write('\n'.encode('ascii'))
+            tn.close()
+
+    except Exception as e:
+        print(f'Exception on device R{port - START_PORT} ({port}):\n\t{e}')
+        sys.exit()
+
+
+def load_running_config():
+    processes = list()
+    for file in os.scandir('running'):
+        try:
+            port = int(re.search('[0-9]+', file.name).group(0)) + START_PORT
+            processes.append(Process(target=telnet_to, args=(port, get_config(file.path))))
+        except Exception as e:
+            print(e)
+
+    for p in processes:
+        p.start()
+    [p.join() for p in processes]
+
+
+def delete_running_config():
+    processes = list()
+    for port in range(START_PORT+1, END_PORT+1):
+        processes.append(Process(target=telnet_to, args=(port,)))
+
+    for p in processes:
+        p.start()
+    [p.join() for p in processes]
+
+
 def get_user_action():
     """get user action"""
     global new_run
@@ -178,13 +245,18 @@ def get_user_action():
         action = input("Select option:\n"
                        "1. create running from config.yml\n"
                        "2. create running from template\n"
-                       "3. load config to devices")
+                       "3. load config to devices\n"
+                       "4. erase running-config from devices\n")
         if '1' in action:
             generate_config()
-            break
         elif '2' in action:
             load_template()
             generate_config()
+        elif '3' in action:
+            load_running_config()
+            break
+        elif '4' in action:
+            delete_running_config()
             break
 
 

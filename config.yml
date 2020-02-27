@@ -1,23 +1,13 @@
 ---
 - name: 1
   loopback: yes
-  p2p: [2,3]
-  ospf: [loopback,2,3]
+  p2p: [2]
+  ospf: [loopback,2]
 - name: 2
   loopback: yes
-  p2p: [1,4]
-  ospf: [loopback,1,4]
-- name: 3
-  loopback: yes
-  p2p: [1,4]
-  ospf: [loopback,1,4]
-- name: 4
-  loopback: yes
-  p2p: [2,3]
-  ospf: [loopback,2,3]
+  p2p: [1]
+  ospf: [loopback,1]
 
 
 # topology
 # R1 — R2
-# |    |
-# R3 — R4
