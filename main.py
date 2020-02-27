@@ -3,35 +3,11 @@ import os
 import inspect
 from cerberus import Validator
 import re
+import glob
+import shutil
 
-
-def read_yaml():
-    """read config file for instructions"""
-    with open("config.yml", 'r') as file1:
-        yaml_file = yaml.safe_load(file1.read())
-        # perform some checks
-        v = Validator()
-        v.schema = {'name': {'required': True, 'type': 'integer', 'min': 1, 'max': 10},
-                    'looback': {'type': 'boolean'},
-                    'external-looback': {'type': 'boolean'},
-                    'p2p': {'type': 'list'},
-                    'external-p2p': {'type': 'list'},
-                    'lan': {'type': 'integer', 'min': 10, 'max': '255'},
-                    'ospf': {'type': 'list'},
-                    'eigrp': {'type': 'list'},
-                    'ibgp': {'type': 'list'},
-                    'ebgp': {'type': 'list'},
-                    }
-        for i in yaml_file:
-            if not v.validate(i):
-                print(v.errors)
-                exit()
-        return yaml_file
-
-
-def generate_config():
-    """generate config from config.yml"""
-    blank_cfg = inspect.cleandoc('''!
+new_run = True
+blank_cfg = inspect.cleandoc('''!
         interface Gi1
         no shut
         !
@@ -46,6 +22,54 @@ def generate_config():
         no ip domain-lookup
         !''')
 
+
+def read_yaml():
+    """read config file for instructions"""
+    with open("config.yml", 'r') as file1:
+        yaml_file = yaml.safe_load(file1.read())
+        # perform some checks
+        v = Validator()
+        v.schema = {'name': {'required': True, 'type': 'integer', 'min': 1, 'max': 10},
+                    'loopback': {'type': 'boolean'},
+                    'external-looback': {'type': 'boolean'},
+                    'p2p': {'type': 'list'},
+                    'external-p2p': {'type': 'list'},
+                    'lan': {'type': 'integer', 'min': 100, 'max': '255'},
+                    'ospf': {'type': 'list'},
+                    'eigrp': {'type': 'list'},
+                    'ibgp': {'type': 'list'},
+                    'ebgp': {'type': 'list'},
+                    }
+        for i in yaml_file:
+            if not v.validate(i):
+                print(v.errors)
+                exit()
+        return yaml_file
+
+
+def load_template():
+    """load templates from running/*.yml to config.yml
+    templates must contain word topology else won't be shown"""
+    yaml_files = [f.path for f in os.scandir('templates') if f.name.endswith('.yml')]
+    templates = {}
+    option = 0
+    for i in yaml_files:
+        with open(i, 'r') as file1:
+            topology = re.search('topology.*', file1.read(), flags=re.MULTILINE|re.DOTALL)
+            if topology:
+                option += 1
+                templates[option] = i
+                print(f'OPTION {option}:{re.sub("# |topology", "", topology.group(0))}')
+    while True:
+        selected = input(f'which  option to load? <1-{option}> ')
+        if selected.isdigit() and (int(selected) in range(1, option)):
+            shutil.copy(templates[int(selected)], 'config.yml')
+            print('updated config.yml file')
+            break
+
+
+def generate_config():
+    """generate config from config.yml"""
     yaml_file = read_yaml()
     for device in yaml_file:
         appended_cfg = blank_cfg + f'\nhostname R{device["name"]}\n!\n'
@@ -127,19 +151,45 @@ def generate_config():
                 neighbor = f'20.0.{dot1q}.{i}'
                 appended_cfg += f' neighbor {neighbor} remote-as {i}\n'
             appended_cfg += '!\n'
+
         write_config(device['name'], appended_cfg)
+    print('running-config generated')
 
 
 def write_config(filename: str, dev_config: str):
     """write running device configuration to file"""
-    if not os.path.exists('running'):
-        os.mkdir('running')
-    with open(f'running/{filename}', 'w') as output:
+    global new_run
+    if new_run:
+        if not os.path.exists('running'):
+            os.mkdir('running')
+        else:
+            for file in os.scandir('running'):
+                os.unlink(file.path)
+        new_run = False
+    with open(os.path.join('running', f'R{filename}'), 'w') as output:
         output.write(dev_config)
 
 
+def get_user_action():
+    """get user action"""
+    global new_run
+    while True:
+        new_run = True
+        action = input("Select option:\n"
+                       "1. create running from config.yml\n"
+                       "2. create running from template\n"
+                       "3. load config to devices")
+        if '1' in action:
+            generate_config()
+            break
+        elif '2' in action:
+            load_template()
+            generate_config()
+            break
+
+
 def main():
-    generate_config()
+    get_user_action()
 
 
 if __name__ == '__main__':
