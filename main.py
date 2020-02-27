@@ -11,7 +11,6 @@ import time
 
 new_run = True
 blank_cfg = inspect.cleandoc('''!
-        configure terminal
         interface Gi1
         no shut
         !
@@ -26,8 +25,8 @@ blank_cfg = inspect.cleandoc('''!
         no ip domain-lookup
         !''')
 IP = '148.251.122.103'
-START_PORT = 2100
-AVAILABLE_DEVICES = 2
+START_PORT = 2100       # CHANGE THIS
+AVAILABLE_DEVICES = 10   # CHANGE THIS
 
 
 def read_yaml():
@@ -56,9 +55,9 @@ def read_yaml():
         return yaml_file
 
 
-def load_template():
-    """load templates from running/*.yml to config.yml
-    templates must contain word topology else won't be shown"""
+def load_templates():
+    """load templates from running/*.yml to config.yml;
+    templates must contain word topology else won't be shown;"""
     yaml_files = [f.path for f in os.scandir('templates') if f.name.endswith('.yml')]
     templates = {}
     option = 0
@@ -77,8 +76,8 @@ def load_template():
             break
 
 
-def generate_config():
-    """generate config from config.yml"""
+def generate_running_config():
+    """generate running config from config.yml"""
     yaml_file = read_yaml()
 
     for device in yaml_file:
@@ -161,7 +160,7 @@ def generate_config():
                 neighbor = f'20.0.{dot1q}.{i}'
                 appended_cfg += f' neighbor {neighbor} remote-as {i}\n'
             appended_cfg += '!\n'
-        appended_cfg += 'end'
+
         write_config(device['name'], appended_cfg)
     print('running-config generated')
 
@@ -181,7 +180,7 @@ def write_config(filename: str, dev_config: str):
 
 
 def get_config(file):
-    """used by telnet_to"""
+    """used to retrieve running-config which to load"""
     try:
         with open(file.path) as myfile:
             return myfile.read()
@@ -203,16 +202,21 @@ def telnet_to(port, config=None):
 
         # load provided config
         else:
-            print(f"loading running-config for R{port-START_PORT}")
+            print(f"sending running-config to R{port-START_PORT}")
             tn = telnetlib.Telnet(IP, port)
+            tn.write('enable\n'.encode('ascii'))
+            time.sleep(0.2)
+            tn.write('configure terminal\n'.encode('ascii'))
+            time.sleep(0.2)
             for i in config.split('!'):
                 tn.write(i.encode('ascii'))
                 time.sleep(0.2)
-            tn.write('\n'.encode('ascii'))
+            tn.write('end\n'.encode('ascii'))
+            time.sleep(0.2)
             tn.close()
 
     except Exception as e:
-        print(f'Exception on device R{port - START_PORT} ({port}):\n\t{e}')
+        print(f'Exception on device R{port - START_PORT} ({port}):\t{e}')
         sys.exit()
 
 
@@ -231,6 +235,7 @@ def load_running_config():
 
 
 def load_ine_running_config():
+    """load device config from ine workbook"""
     if AVAILABLE_DEVICES < 10:
         print(f'Minimum of 10 devices are required to load the labs. Currently have {AVAILABLE_DEVICES}')
         sys.exit()
@@ -256,9 +261,10 @@ def load_ine_running_config():
 
 
 def delete_running_config():
+    """deletes config in all devices"""
     processes = list()
-    for port in range(START_PORT+1, AVAILABLE_DEVICES+1):
-        processes.append(Process(target=telnet_to, args=(port,)))
+    for port in range(1, AVAILABLE_DEVICES+1):
+        processes.append(Process(target=telnet_to, args=(START_PORT + port,)))
 
     for p in processes:
         p.start()
@@ -271,17 +277,17 @@ def get_user_action():
     while True:
         new_run = True
         action = input("\nOptions:\n"
-                       "1. create running from config.yml\n"
-                       "2. create running from template\n"
+                       "1. create running-config from config.yml\n"
+                       "2. create running-config from templates\n"
                        "3. load config to devices\n"
                        "4. erase running-config from devices\n"
-                       "5. load INE advanced.technology.labs v5 to devices\n"
+                       "5. load INE advanced.technology.labs v5 config to devices\n"
                        "Select option: ")
         if '1' in action:
-            generate_config()
+            generate_running_config()
         elif '2' in action:
-            load_template()
-            generate_config()
+            load_templates()
+            generate_running_config()
         elif '3' in action:
             load_running_config()
             break
