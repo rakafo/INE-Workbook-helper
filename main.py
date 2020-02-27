@@ -27,7 +27,7 @@ blank_cfg = inspect.cleandoc('''!
         !''')
 IP = '148.251.122.103'
 START_PORT = 2100
-END_PORT = 2100 + 2
+AVAILABLE_DEVICES = 2
 
 
 def read_yaml():
@@ -51,6 +51,8 @@ def read_yaml():
             if not v.validate(i):
                 print(v.errors)
                 exit()
+        if len(yaml_file) > AVAILABLE_DEVICES:
+            print(f'topology ({len(yaml_file)}) is bigger than the number of available devices ({AVAILABLE_DEVICES})')
         return yaml_file
 
 
@@ -78,6 +80,7 @@ def load_template():
 def generate_config():
     """generate config from config.yml"""
     yaml_file = read_yaml()
+
     for device in yaml_file:
         appended_cfg = blank_cfg + f'\nhostname R{device["name"]}\n!\n'
 
@@ -177,10 +180,10 @@ def write_config(filename: str, dev_config: str):
         output.write(dev_config)
 
 
-def get_config(filename):
+def get_config(file):
     """used by telnet_to"""
     try:
-        with open(filename) as myfile:
+        with open(file.path) as myfile:
             return myfile.read()
     except Exception as e:
         print(e)
@@ -218,7 +221,7 @@ def load_running_config():
     for file in os.scandir('running'):
         try:
             port = int(re.search('[0-9]+', file.name).group(0)) + START_PORT
-            processes.append(Process(target=telnet_to, args=(port, get_config(file.path))))
+            processes.append(Process(target=telnet_to, args=(port, get_config(file))))
         except Exception as e:
             print(e)
 
@@ -227,9 +230,34 @@ def load_running_config():
     [p.join() for p in processes]
 
 
+def load_ine_running_config():
+    if AVAILABLE_DEVICES < 10:
+        print(f'Minimum of 10 devices are required to load the labs. Currently have {AVAILABLE_DEVICES}')
+        sys.exit()
+    chosen_config = input('Specify INE workbook name (i.e basic eigrp routing or basic.eigrp.routing): ').replace(" ", ".").lower()
+    config_path = os.path.join('ine.ccie.rsv5.workbook.initial.configs', 'advanced.technology.labs', chosen_config)
+
+    if not os.path.exists(config_path):
+        print(f'directory ine.ccie.rsv5.workbook.initial.configs/advanced.technology.labs/{chosen_config} doesn\'t exist')
+        sys.exit()
+
+    processes = list()
+    for file in os.scandir(config_path):
+        try:
+            port = re.split('r|\.', file.name.lower())[1]
+            port = START_PORT + int(port)
+            processes.append(Process(target=telnet_to, args=(port, get_config(file))))
+        except Exception as e:
+            print(f"skipping non-router entry - {file.name}")
+
+    for p in processes:
+        p.start()
+    [p.join() for p in processes]
+
+
 def delete_running_config():
     processes = list()
-    for port in range(START_PORT+1, END_PORT+1):
+    for port in range(START_PORT+1, AVAILABLE_DEVICES+1):
         processes.append(Process(target=telnet_to, args=(port,)))
 
     for p in processes:
@@ -242,11 +270,13 @@ def get_user_action():
     global new_run
     while True:
         new_run = True
-        action = input("Select option:\n"
+        action = input("\nOptions:\n"
                        "1. create running from config.yml\n"
                        "2. create running from template\n"
                        "3. load config to devices\n"
-                       "4. erase running-config from devices\n")
+                       "4. erase running-config from devices\n"
+                       "5. load INE advanced.technology.labs v5 to devices\n"
+                       "Select option: ")
         if '1' in action:
             generate_config()
         elif '2' in action:
@@ -257,6 +287,8 @@ def get_user_action():
             break
         elif '4' in action:
             delete_running_config()
+        elif '5' in action:
+            load_ine_running_config()
             break
 
 
