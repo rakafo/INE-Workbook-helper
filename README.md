@@ -1,11 +1,11 @@
-Having purchased CCIE INE workbook, I found it rather tedious to prepare for labs. This tool is my solution of how to quickly delete/load INE configurations, as well custom topologies into CSR 1000v platform.
+Having purchased CCIE INE workbook, I found it rather tedious to prepare for labs. This tool is my solution on how to quickly delete/load INE configurations, as well create/load custom topologies into CSR 1000v platform.
 
-#Features:
+# Features:
 1. quickly create mundane L2, L3 config to reach connectivity;
 2. load/delete running-config using telnet;
 3. load INE CCIEv5 advanced.technology.labs configurations
 
-##In-depth overview
+## In-depth overview
 ### 1. quickly create mundane L2, L3 config to reach connectivity;
 
 Using yaml syntax, defines running-config. 
