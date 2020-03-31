@@ -204,6 +204,8 @@ def telnet_to(port, config=None):
         else:
             print(f"sending running-config to R{port-START_PORT}")
             tn = telnetlib.Telnet(IP, port)
+            tn.write('\n'.encode('ascii'))
+            time.sleep(0.2)
             tn.write('enable\n'.encode('ascii'))
             time.sleep(0.2)
             tn.write('configure terminal\n'.encode('ascii'))
