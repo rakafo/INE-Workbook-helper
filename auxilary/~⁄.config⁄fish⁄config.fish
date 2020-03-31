@@ -1,0 +1,11 @@
+# use existing bash scripts
+alias r1="bash -ic 'telnet_to r1'"
+alias r2="bash -ic 'telnet_to r2'"
+alias r3="bash -ic 'telnet_to r3'"
+alias r4="bash -ic 'telnet_to r4'"
+alias r5="bash -ic 'telnet_to r5'"
+alias r6="bash -ic 'telnet_to r6'"
+alias r7="bash -ic 'telnet_to r7'"
+alias r8="bash -ic 'telnet_to r8'"
+alias r9="bash -ic 'telnet_to r9'"
+alias r10="bash -ic 'telnet_to r10'"
