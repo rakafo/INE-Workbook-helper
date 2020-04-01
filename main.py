@@ -9,9 +9,15 @@ import telnetlib
 import sys
 import time
 
+IP = '148.251.122.103'       # CHANGE THIS
+START_PORT = 32768           # CHANGE THIS
+AVAILABLE_DEVICES = 10       # CHANGE THIS
+SCHEME_NAME = 'IOL'          # CHANGE THIS to IOL if running IOL
+SCHEME_IF_PREFIX = {'CSR1000v': 'GigabitEthernet1', 'IOL': 'Ethernet0/0'}
+
 new_run = True
-blank_cfg = inspect.cleandoc('''!
-        interface Gi1
+blank_cfg = inspect.cleandoc(f'''!
+        interface {SCHEME_IF_PREFIX[SCHEME_NAME]}
         no shut
         !
         line con 0
@@ -24,11 +30,6 @@ blank_cfg = inspect.cleandoc('''!
         !
         no ip domain-lookup
         !''')
-IP = '148.251.122.103'        # CHANGE THIS
-START_PORT = 32768           # CHANGE THIS
-AVAILABLE_DEVICES = 10       # CHANGE THIS
-SCHEME_NAME = 'CSR1000v'     # CHANGE THIS to IOL if running IOL
-SCHEME_IF_PREFIX = {'CSR1000v': 'GigabitEthernet1', 'IOL': 'Ethernet0/0'}
 
 
 def read_yaml():
@@ -167,6 +168,31 @@ def generate_running_config():
     print('running-config generated')
 
 
+def generate_ine_running_config():
+    """load device config from ine workbook"""
+    if AVAILABLE_DEVICES < 10:
+        print(f'Minimum of 10 devices are required to load the labs. Currently have {AVAILABLE_DEVICES}')
+        sys.exit()
+    chosen_config = input('Specify INE workbook name (i.e basic eigrp routing or basic.eigrp.routing): ').replace(" ", ".").lower()
+    config_path = os.path.join('ine.ccie.rsv5.workbook.initial.configs', 'advanced.technology.labs', chosen_config)
+
+    if not os.path.exists(config_path):
+        print(f'directory ine.ccie.rsv5.workbook.initial.configs/advanced.technology.labs/{chosen_config} doesn\'t exist')
+        sys.exit()
+
+    processes = list()
+    for file in os.scandir(config_path):
+        try:
+            port = re.split('r|\.', file.name.lower())[1]
+            config = get_config(file)
+            # change if prefix if loading on IOL
+            if SCHEME_NAME == 'IOL':
+                config = re.sub(SCHEME_IF_PREFIX['CSR1000v'], SCHEME_IF_PREFIX['IOL'], config)
+            write_config(f'{port}', config)
+        except Exception as e:
+            print(f"skipping non-router entry - {file.name}")
+
+
 def write_config(filename: str, dev_config: str):
     """write running device configuration to file"""
     global new_run
@@ -181,7 +207,7 @@ def write_config(filename: str, dev_config: str):
         output.write(dev_config)
 
 
-def get_config(file):
+def get_config(file: str):
     """used to retrieve running-config which to load"""
     try:
         with open(file.path) as myfile:
@@ -190,7 +216,7 @@ def get_config(file):
         print(e)
 
 
-def telnet_to(port, config=None):
+def telnet_to(port: int, config=None):
     try:
         # restore base config
         if not config:
@@ -198,7 +224,13 @@ def telnet_to(port, config=None):
             tn = telnetlib.Telnet(IP, port)
             tn.write('end\n'.encode('ascii'))
             time.sleep(0.2)
-            tn.write('config replace nvram:startup-config force\n'.encode('ascii'))
+            # choose an appropriate startup config based on platform
+            cmd = ''
+            if SCHEME_NAME == 'CSR1000v':
+                cmd = 'config replace nvram:startup-config force'
+            elif SCHEME_NAME == 'IOL':
+                cmd = 'configure replace unix:startup-config force'
+            tn.write(f'{cmd}\n'.encode('ascii'))
             time.sleep(1)
             tn.close()
 
@@ -238,36 +270,6 @@ def load_running_config():
     [p.join() for p in processes]
 
 
-def load_ine_running_config():
-    """load device config from ine workbook"""
-    if AVAILABLE_DEVICES < 10:
-        print(f'Minimum of 10 devices are required to load the labs. Currently have {AVAILABLE_DEVICES}')
-        sys.exit()
-    chosen_config = input('Specify INE workbook name (i.e basic eigrp routing or basic.eigrp.routing): ').replace(" ", ".").lower()
-    config_path = os.path.join('ine.ccie.rsv5.workbook.initial.configs', 'advanced.technology.labs', chosen_config)
-
-    if not os.path.exists(config_path):
-        print(f'directory ine.ccie.rsv5.workbook.initial.configs/advanced.technology.labs/{chosen_config} doesn\'t exist')
-        sys.exit()
-
-    processes = list()
-    for file in os.scandir(config_path):
-        try:
-            port = re.split('r|\.', file.name.lower())[1]
-            port = START_PORT + int(port)
-            config = get_config(file)
-            # change if prefix if loading on IOL
-            if SCHEME_NAME == 'IOL':
-                config = re.sub(SCHEME_IF_PREFIX['CSR1000v'], SCHEME_IF_PREFIX['IOL'], config)
-            processes.append(Process(target=telnet_to, args=(port, config)))
-        except Exception as e:
-            print(f"skipping non-router entry - {file.name}")
-
-    for p in processes:
-        p.start()
-    [p.join() for p in processes]
-
-
 def delete_running_config():
     """deletes config in all devices"""
     processes = list()
@@ -287,8 +289,8 @@ def get_user_action():
         action = input("\nOptions:\n"
                        "1. create running-config from config.yml\n"
                        "2. create running-config from templates\n"
-                       "3. load running-config to devices\n"
-                       "4. load INE advanced.technology.labs v5 config to devices\n"
+                       "3. create running-config from INE v5 advanced technology labs\n"
+                       "4. load running-config to devices\n"
                        "5. erase running-config from devices\n"
                        "Select option: ")
         print()
@@ -298,10 +300,10 @@ def get_user_action():
             load_templates()
             generate_running_config()
         elif '3' in action:
+            generate_ine_running_config()
+        elif '4' in action:
             load_running_config()
             break
-        elif '4' in action:
-            load_ine_running_config()
         elif '5' in action:
             delete_running_config()
             break

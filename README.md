@@ -1,9 +1,9 @@
-Having purchased CCIE INE workbook, I found it rather tedious to prepare for labs. This tool is my solution on how to quickly delete/load INE configurations, as well create/load custom topologies into CSR 1000v platform.
+Having purchased CCIE INE workbook, I found it rather tedious to prepare for labs. This tool is my solution on how to quickly delete/load INE configurations, as well as create/load custom topologies into CSR 1000v and IOL platforms.
 
 # Features:
 1. quickly create mundane L2, L3 config to reach connectivity;
 2. load/delete running-config using telnet;
-3. load INE CCIEv5 advanced.technology.labs configurations
+3. load INE CCIEv5 advanced.technology.labs configurations;
 
 ## In-depth overview
 ### 1. quickly create mundane L2, L3 config to reach connectivity;
@@ -26,7 +26,7 @@ Supported Routing options:
     - there are no checks as to whether the specification you made in yaml is sound bgp-wise.
 
 # yaml syntax
-yaml is superset of json, but it's easier to read and write. Since it can be represented inline (as in below sample) or with new lines, either style works. To see how it would look using new lines, parse the sample in http://www.yamllint.com/.
+yaml is like json, but it's much more human friendly. Since it can be represented inline (as in below sample) or with new lines, either style works. To see how it would look using new lines, parse the sample in http://www.yamllint.com/.
 
 Below is full sample config of R1:
 ```yaml
@@ -51,17 +51,24 @@ START_PORT = 2100       # CHANGE THIS
 AVAILABLE_DEVICES = 10  # CHANGE THIS
 ```
 My configuration uses port 2100 as base, i.e. R0, so R1 is 2101.
-Set AVAILABLE_DEVICES to a number of how many CSR instances you have running. If incorrect number is used, there will be connectivity errors when deleting running configurations, but otherwise functionality is not impacted.
+Set AVAILABLE_DEVICES to a number of device instances you have running. If incorrect number is used, there will be connectivity errors when deleting running configurations, but otherwise functionality is not impacted.
 
 ### 3. load INE CCIEv5 advanced.technology.labs configurations
 Script searches for '/ine.ccie.rsv5.workbook.initial.configs/advanced.technology.labs' within the current directory. 
 Must change AVAILABLE_DEVICES number to 20.
 INE configs aren't provided by me.
+INE configs are parsed if using IOL so GigabitEthernet1 becomes Ethernet0/0. Transparent to the user, just be aware when pasting answers that they'll need to be changed as well.
 
 # Assumptions
-- CSR1000v is using Gi1 interface;
+## CSR1000v
+- GigabitEthernet1 is implied;
 - virtual console ports in hypervisor are consistently numbered, i.e. CSR1 - port x, CSR2 - port x+1;
-- there is a base startup-config saved as 'startup-config';
+- there is a base startup-config saved as 'nvram:startup-config;
+## IOL
+- Ethernet0/0 is implied;
+- there is a base startup-config saved as 'unix:startup-config. Since eve-ng provides a convenient configuration restore as well, this is added for feature parity, but may otherwise be unused;
+- using the following topology:
+!(topo)[auxilary/IOL_topology.png]
 
 # Installation
-`pip install Cerberus PyYAML`
+`pip install -r requirements.txt`
