@@ -24,9 +24,11 @@ blank_cfg = inspect.cleandoc('''!
         !
         no ip domain-lookup
         !''')
-IP = '148.251.122.103'  # CHANGE THIS
-START_PORT = 2100       # CHANGE THIS
-AVAILABLE_DEVICES = 10  # CHANGE THIS
+IP = '148.251.122.103'        # CHANGE THIS
+START_PORT = 32768           # CHANGE THIS
+AVAILABLE_DEVICES = 10       # CHANGE THIS
+SCHEME_NAME = 'CSR1000v'     # CHANGE THIS to IOL if running IOL
+SCHEME_IF_PREFIX = {'CSR1000v': 'GigabitEthernet1', 'IOL': 'Ethernet0/0'}
 
 
 def read_yaml():
@@ -99,7 +101,7 @@ def generate_running_config():
             for i in device['p2p']:
                 dot1q = f'{device["name"]}{i}' if device["name"] < i else f'{i}{device["name"]}'  # make asc
                 ip_address = f'10.0.{dot1q}.{device["name"]}'
-                appended_cfg += f'interface gi1.{dot1q}\n' \
+                appended_cfg += f'interface {SCHEME_IF_PREFIX[SCHEME_NAME]}.{dot1q}\n' \
                                 f' encapsulation dot1q {dot1q}\n' \
                                 f' ip address {ip_address} 255.255.255.0\n' \
                                 f' ip ospf network point-to-point\n!\n'
@@ -109,7 +111,7 @@ def generate_running_config():
                 dot1q = f'{device["name"]}{i}' if device["name"] < i else f'{i}{device["name"]}'  # make asc
                 dot1q = 200 + int(dot1q)
                 ip_address = f'20.0.{dot1q}.{device["name"]}'
-                appended_cfg += f'interface gi1.{dot1q}\n' \
+                appended_cfg += f'interface {SCHEME_IF_PREFIX[SCHEME_NAME]}.{dot1q}\n' \
                                 f' encapsulation dot1q {dot1q}\n' \
                                 f' ip address {ip_address} 255.255.255.0\n' \
                                 f' ip ospf network point-to-point\n!\n'
@@ -117,7 +119,7 @@ def generate_running_config():
         if device.get('lan'):
                 dot1q = f'{device["lan"]}'
                 ip_address = f'10.0.{dot1q}.{device["name"]}'
-                appended_cfg += f'interface gi1.{dot1q}\n' \
+                appended_cfg += f'interface {SCHEME_IF_PREFIX[SCHEME_NAME]}.{dot1q}\n' \
                                 f' encapsulation dot1q {dot1q}\n' \
                                 f' ip address {ip_address} 255.255.255.0\n!\n'
 
@@ -253,7 +255,11 @@ def load_ine_running_config():
         try:
             port = re.split('r|\.', file.name.lower())[1]
             port = START_PORT + int(port)
-            processes.append(Process(target=telnet_to, args=(port, get_config(file))))
+            config = get_config(file)
+            # change if prefix if loading on IOL
+            if SCHEME_NAME == 'IOL':
+                config = re.sub(SCHEME_IF_PREFIX['CSR1000v'], SCHEME_IF_PREFIX['IOL'], config)
+            processes.append(Process(target=telnet_to, args=(port, config)))
         except Exception as e:
             print(f"skipping non-router entry - {file.name}")
 
@@ -281,10 +287,11 @@ def get_user_action():
         action = input("\nOptions:\n"
                        "1. create running-config from config.yml\n"
                        "2. create running-config from templates\n"
-                       "3. load config to devices\n"
-                       "4. erase running-config from devices\n"
-                       "5. load INE advanced.technology.labs v5 config to devices\n"
+                       "3. load running-config to devices\n"
+                       "4. load INE advanced.technology.labs v5 config to devices\n"
+                       "5. erase running-config from devices\n"
                        "Select option: ")
+        print()
         if '1' in action:
             generate_running_config()
         elif '2' in action:
@@ -294,9 +301,9 @@ def get_user_action():
             load_running_config()
             break
         elif '4' in action:
-            delete_running_config()
-        elif '5' in action:
             load_ine_running_config()
+        elif '5' in action:
+            delete_running_config()
             break
 
 
