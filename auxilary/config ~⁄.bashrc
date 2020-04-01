@@ -11,7 +11,7 @@ alias r10="telnet_to r10"
 
 telnet_to() {
     IP=148.251.122.103
-    PORT=2100
+    PORT=32768
 
     #set tab name
     echo -ne "\033]30;$1\007"

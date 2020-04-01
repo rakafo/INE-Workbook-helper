@@ -4,6 +4,7 @@ Having purchased CCIE INE workbook, I found it rather tedious to prepare for lab
 1. quickly create mundane L2, L3 config to reach connectivity;
 2. load/delete running-config using telnet;
 3. load INE CCIEv5 advanced.technology.labs configurations;
+4. conveniently connect to all routers using scripts at auxilary/;
 
 ## In-depth overview
 ### 1. quickly create mundane L2, L3 config to reach connectivity;
@@ -68,7 +69,7 @@ INE configs are parsed if using IOL so GigabitEthernet1 becomes Ethernet0/0. Tra
 - Ethernet0/0 is implied;
 - there is a base startup-config saved as 'unix:startup-config. Since eve-ng provides a convenient configuration restore as well, this is added for feature parity, but may otherwise be unused;
 - using the following topology:
-!(topo)[auxilary/IOL_topology.png]
+![](auxilary/IOL_topology.png)
 
 # Installation
 `pip install -r requirements.txt`
