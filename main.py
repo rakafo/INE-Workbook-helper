@@ -1,3 +1,5 @@
+#!/opt/venv/bin/python
+
 import yaml
 import os
 import inspect
@@ -238,16 +240,19 @@ def telnet_to(port: int, config=None):
         else:
             print(f"sending running-config to R{port-START_PORT}")
             tn = telnetlib.Telnet(IP, port)
-            tn.write('\n'.encode('ascii'))
+            tn.write('\r\n'.encode('ascii'))
             time.sleep(0.2)
-            tn.write('enable\n'.encode('ascii'))
+            tn.write('enable\r\n'.encode('ascii'))
             time.sleep(0.2)
-            tn.write('configure terminal\n'.encode('ascii'))
+            tn.write('configure terminal\r\n'.encode('ascii'))
             time.sleep(0.2)
             for i in config.split('!'):
                 tn.write(i.encode('ascii'))
                 time.sleep(0.2)
-            tn.write('end\n'.encode('ascii'))
+            tn.write('end\r\n'.encode('ascii'))
+            tn.write('#success\r\n'.encode('ascii'))
+            time.sleep(0.2)
+            # print(tn.read_until("success".encode('ascii'), timeout=1).decode('ascii'))
             time.sleep(0.2)
             tn.close()
 
