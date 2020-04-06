@@ -219,46 +219,54 @@ def get_config(file: str):
 
 
 def telnet_to(port: int, config=None):
+    hostname = f'R{port - START_PORT}'.ljust(3)
     try:
         # restore base config
         if not config:
-            print(f"loading startup-config for R{port - START_PORT}")
+            print(f"loading startup-config for {hostname} - ", end='')
             tn = telnetlib.Telnet(IP, port)
-            tn.write('end\n'.encode('ascii'))
-            time.sleep(0.2)
+            telnet_write(tn, 'end', 0.2)
             # choose an appropriate startup config based on platform
             cmd = ''
             if SCHEME_NAME == 'CSR1000v':
                 cmd = 'config replace nvram:startup-config force'
             elif SCHEME_NAME == 'IOL':
                 cmd = 'configure replace unix:startup-config force'
-            tn.write(f'{cmd}\n'.encode('ascii'))
-            time.sleep(1)
+            telnet_write(tn, cmd, 1)
+            telnet_check_outcome(tn)
             tn.close()
 
         # load provided config
         else:
-            print(f"sending running-config to R{port-START_PORT}")
+            print(f"sending running-config to {hostname} - ", end='')
             tn = telnetlib.Telnet(IP, port)
-            tn.write('\r\n'.encode('ascii'))
-            time.sleep(0.2)
-            tn.write('enable\r\n'.encode('ascii'))
-            time.sleep(0.2)
-            tn.write('configure terminal\r\n'.encode('ascii'))
-            time.sleep(0.2)
+            telnet_write(tn, '', 0.2)
+            telnet_write(tn, 'enable', 0.2)
+            telnet_write(tn, 'configure terminal', 0.2)
             for i in config.split('!'):
-                tn.write(i.encode('ascii'))
-                time.sleep(0.2)
-            tn.write('end\r\n'.encode('ascii'))
-            tn.write('#success\r\n'.encode('ascii'))
-            time.sleep(0.2)
-            # print(tn.read_until("success".encode('ascii'), timeout=1).decode('ascii'))
-            time.sleep(0.2)
+                telnet_write(tn, i, 0.2)
+            telnet_write(tn, 'end', 0.2)
+            telnet_check_outcome(tn)
             tn.close()
 
     except Exception as e:
         print(f'Exception on device R{port - START_PORT} ({port}):\t{e}')
         sys.exit()
+
+
+def telnet_write(connection, msg, sleep_time):
+    connection.write(f'{msg}\r\n'.encode('ascii'))
+    time.sleep(sleep_time)
+
+
+def telnet_check_outcome(connection):
+    # check if config sent successfully
+    telnet_write(connection, '#configured from python', 0.2)
+    output = connection.read_until("#configured from python".encode('ascii'), timeout=3).decode('ascii')
+    if '#configured from python' in output:
+        print('success')
+    else:
+        print('fail')
 
 
 def load_running_config():
