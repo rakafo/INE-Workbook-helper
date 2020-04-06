@@ -14,7 +14,7 @@ import time
 IP = '148.251.122.103'       # CHANGE THIS
 START_PORT = 32768           # CHANGE THIS
 AVAILABLE_DEVICES = 10       # CHANGE THIS
-SCHEME_NAME = 'IOL'          # CHANGE THIS to IOL if running IOL
+SCHEME_NAME = 'IOL'          # change to what you're running: CSR1000v or IOL
 SCHEME_IF_PREFIX = {'CSR1000v': 'GigabitEthernet1', 'IOL': 'Ethernet0/0'}
 
 new_run = True
